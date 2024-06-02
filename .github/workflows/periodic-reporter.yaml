@@ -18,9 +18,9 @@
 name: 'reporter'
 
 on:
-  schedule:
-    # 2 hours after scheduled periodic and once again in the evening
-    - cron: '0 5,17 * * *'
+  # schedule:
+  #   # 2 hours after scheduled periodic and once again in the evening
+  #   - cron: '0 5,17 * * *'
   workflow_dispatch:
 
 jobs:

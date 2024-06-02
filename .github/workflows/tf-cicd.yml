@@ -1,0 +1,85 @@
+# Copyright 2022 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 'DEV Deployment'
+
+on:
+  push:
+    branches:
+    - dev
+  workflow_dispatch:
+
+jobs:
+
+  terraform:
+    name: 'terraform'
+    runs-on: ubuntu-latest
+    environment: dev
+    
+    # Add "id-token" with the intended permissions.
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+      security-events: write
+      packages: write
+      actions: read
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+      
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v2'
+      # Update the values with the output from the setup step
+      with:
+        workload_identity_provider: projects/723529394436/locations/global/workloadIdentityPools/github-pool-8b13aad2/providers/github-provider-8b13aad2
+        service_account: sa-jmc-dev@jmc-org-wif-prj-8b13aad2.iam.gserviceaccount.com
+
+
+    # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3.1.1
+      with:
+        terraform_version: 1.8.4
+        cli_config_credentials_token: ${{ steps.auth.outputs.access_token }}
+          
+    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    - name: Terraform Init
+      run: |
+        pwd
+        cd infra
+        terraform init 
+
+    # Checks that all Terraform configuration files adhere to a canonical format
+    #- name: Terraform Format
+    #  run: terraform fmt -check
+
+    # Generates an execution plan for Terraform
+    - name: Terraform Plan
+      run: terraform plan -var-file=dev.tfvars
+
+      # On push to main, build or change infrastructure according to Terraform configuration files
+      # Note: It is recommended to set up a required "strict" status check in your repository for "Terraform Cloud". See the documentation on "strict" required status checks for more information: https://help.github.com/en/github/administering-a-repository/types-of-required-status-checks
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+      run: terraform apply -var-file=dev.tfvars -auto-approve
+
+ 
